@@ -7,6 +7,7 @@
   <a href="https://github.com/Mello21century/symposer/releases/latest"><img src="https://img.shields.io/github/v/release/Mello21century/symposer?color=777BB4" alt="Latest release"></a>
   <img src="https://img.shields.io/badge/PHP-7.2.5%2B-777BB4?logo=php&logoColor=white" alt="PHP 7.2.5+">
   <img src="https://img.shields.io/badge/macOS%20%7C%20Linux%20%7C%20Windows-supported-F2C14E" alt="macOS, Linux, Windows">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-171A2E" alt="MIT license"></a>
 </p>
 
 <p align="center">
@@ -152,6 +153,9 @@ Thanks to everyone who has helped build symposer! :heart:
 <a href="https://github.com/Mello21century/symposer/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=Mello21century/symposer" alt="Contributors">
 </a>
+
+## :page_facing_up: License
+[MIT](LICENSE) © 2026 Ahmed Safaa
 
 ---
 
