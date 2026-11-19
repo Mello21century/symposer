@@ -12,17 +12,18 @@ die() { echo "FAIL $*" >&2; exit 1; }
 sym() { "$BIN" "$@" 2>&1 | tee "$WORK/last.log" >/dev/null || { cat "$WORK/last.log"; die "symposer $*"; }; }
 # where: prints "store" | "hardlink" | "dir" | "path:<target>" for a vendor path (works for symlinks and junctions)
 where() {
-  php -r '$n=fn($x)=>str_replace("\\","/",(string)$x); $p=$argv[1]; $s=$n(realpath(getenv("SYMPOSER_HOME")."/store")); $r=$n(realpath($p));
+  php -r '$n=function($x){ return str_replace("\\","/",(string)$x); }; $p=$argv[1]; $s=$n(realpath(getenv("SYMPOSER_HOME")."/store")); $r=$n(realpath($p));
     if ($r==="") { echo "missing"; exit; }
-    if ($r!==$n(realpath(dirname($p)))."/".basename($p)) { echo str_starts_with($r,$s) ? "store" : "path:".$r; exit; }
+    if ($r!==$n(realpath(dirname($p)))."/".basename($p)) { echo strpos($r,$s)===0 ? "store" : "path:".$r; exit; }
     $f=null; foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($p, FilesystemIterator::SKIP_DOTS)) as $x) { if ($x->isFile()) { $f=$x; break; } }
     echo ($f && stat($f->getPathname())["nlink"] > 1) ? "hardlink" : "dir";' "$1"
 }
 expect() { local got; got=$(where "$1"); [[ "$got" == $2 ]] || die "$1: expected $2, got $got"; pass "$1 is $got"; }
 
+# Fixtures use wide constraints so the same suite runs on PHP 7.2 through 8.x.
 # 1. basic: install links into the store, autoload + InstalledVersions + bin proxies work
 mkdir -p "$WORK/p1" && cd "$WORK/p1"
-echo '{"require":{"monolog/monolog":"^3.9"},"require-dev":{"phpunit/phpunit":"^11"}}' > composer.json
+echo '{"require":{"monolog/monolog":"^2.9 || ^3.9"},"require-dev":{"phpunit/phpunit":"^8.5 || ^9.6 || ^10 || ^11"}}' > composer.json
 sym update
 expect vendor/monolog/monolog store
 expect vendor/phpunit/phpunit hardlink
@@ -36,8 +37,8 @@ grep -q ", 0 newly stored" "$WORK/last.log" || die "second project downloaded pa
 pass "second project: all from store"
 
 # 3. update moves only that link, the old version stays in the store
-sym require monolog/monolog:3.9.0
-php -r 'exit(str_contains(realpath("vendor/monolog/monolog"), "3.9.0-") ? 0 : 1);' || die "monolog link not moved"
+sym require monolog/monolog:2.9.1
+php -r 'exit(strpos(realpath("vendor/monolog/monolog"), "2.9.1-") !== false ? 0 : 1);' || die "monolog link not moved"
 [ "$(ls "$SYMPOSER_HOME/store/monolog/monolog" | wc -l)" -ge 2 ] || die "old monolog version missing from store"
 pass "update relinked; old version kept"
 
@@ -55,7 +56,7 @@ cat > composer.json <<'EOF'
     { "type": "composer", "url": "https://wpackagist.org", "only": ["wpackagist-plugin/*"] }
   ],
   "require": {
-    "acme/local": "*@dev", "psr/log": "^3", "psr/container": "^2",
+    "acme/local": "*@dev", "psr/log": "^1 || ^2 || ^3", "psr/container": "^1.1 || ^2",
     "composer/installers": "^2", "wpackagist-plugin/akismet": "*"
   },
   "extra": {

@@ -23,10 +23,10 @@ import (
 var shim []byte
 
 const (
-	version = "0.1.0"
+	version = "0.1.1"
 	// ponytail: pinned because the shim decorates Composer internals; bump both together after re-running e2e
-	composerVersion = "2.11.1"
-	composerSHA256  = "6f1b891e1d4927d62740276c540fb490e47689e19e102c49e8da849794882f8c"
+	composerVersion = "2.11.2"
+	composerSHA256  = "dd158c0afd41d15fac89e1b4e47b5d42911fe316c3687cd5edac98319b25d028"
 )
 
 func main() {

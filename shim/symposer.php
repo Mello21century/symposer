@@ -8,6 +8,7 @@ namespace Symposer;
 use Composer\Composer;
 use Composer\Console\Application;
 use Composer\Downloader\DownloaderInterface;
+use Composer\IO\IOInterface;
 use Composer\Package\PackageInterface;
 use Composer\Util\Filesystem;
 use Composer\Util\Platform;
@@ -16,6 +17,12 @@ use function React\Promise\resolve;
 
 const MIN_COMPOSER = '2.11.0'; // ponytail: oldest version the decorator was verified against
 const ARCHIVE_TYPES = ['zip', 'tar', 'gzip', 'xz', 'rar', 'phar', 'file'];
+
+// ponytail: this file stays PHP 7.2.5-compatible (Composer 2.11's floor); CI runs it on 7.2 and 8.x
+if (PHP_VERSION_ID < 70205) {
+    fwrite(STDERR, 'symposer: PHP 7.2.5+ required, got ' . PHP_VERSION . " (pick another with SYMPOSER_PHP)\n");
+    exit(1);
+}
 
 $phar = $argv[1] ?? '';
 if ($phar === '' || !is_file($phar)) {
@@ -53,16 +60,22 @@ Platform::putEnv('COMPOSER_BINARY', realpath($phar));
 
 final class Stats
 {
-    public static int $linked = 0;
-    public static int $stored = 0;
+    /** @var int */
+    public static $linked = 0;
+    /** @var int */
+    public static $stored = 0;
 }
 
 final class Store
 {
-    private Filesystem $fs;
+    /** @var string */
+    private $root;
+    /** @var Filesystem */
+    private $fs;
 
-    public function __construct(public readonly string $root)
+    public function __construct(string $root)
     {
+        $this->root = $root;
         $this->fs = new Filesystem();
     }
 
@@ -185,11 +198,23 @@ final class Store
 final class StoreDownloader implements DownloaderInterface
 {
     /** @var array<int, string> spl_object_id(package) => tmp dir for store misses */
-    private array $tmp = [];
+    private $tmp = [];
+    /** @var DownloaderInterface */
+    private $inner;
+    /** @var Store */
+    private $store;
+    /** @var array<string, true> */
+    private $exclude;
+    /** @var IOInterface */
+    private $io;
 
     /** @param array<string, true> $exclude */
-    public function __construct(private DownloaderInterface $inner, private Store $store, private array $exclude, private \Composer\IO\IOInterface $io)
+    public function __construct(DownloaderInterface $inner, Store $store, array $exclude, IOInterface $io)
     {
+        $this->inner = $inner;
+        $this->store = $store;
+        $this->exclude = $exclude;
+        $this->io = $io;
     }
 
     public function getInstallationSource(): string
@@ -210,7 +235,12 @@ final class StoreDownloader implements DownloaderInterface
             return $path;
         }
 
-        return $this->tmp[spl_object_id($p)] ??= $this->store->tmpDir();
+        $id = spl_object_id($p);
+        if (!isset($this->tmp[$id])) {
+            $this->tmp[$id] = $this->store->tmpDir();
+        }
+
+        return $this->tmp[$id];
     }
 
     public function download(PackageInterface $package, string $path, ?PackageInterface $prevPackage = null): PromiseInterface
@@ -263,7 +293,9 @@ final class StoreDownloader implements DownloaderInterface
             return $this->inner->update($initial, $target, $path); // plain vendor copy both sides
         }
 
-        return $this->remove($initial, $path)->then(fn () => $this->install($target, $path));
+        return $this->remove($initial, $path)->then(function () use ($target, $path) {
+            return $this->install($target, $path);
+        });
     }
 
     public function remove(PackageInterface $package, string $path): PromiseInterface
@@ -313,12 +345,16 @@ function excludes(Composer $composer): array
 
 final class SymposerApplication extends Application
 {
-    private \WeakMap $wrapped;
+    /** @var \SplObjectStorage Composer instances whose downloaders are already wrapped */
+    private $wrapped;
+    /** @var Store */
+    private $symposerStore;
 
-    public function __construct(private Store $store)
+    public function __construct(Store $store)
     {
         parent::__construct();
-        $this->wrapped = new \WeakMap();
+        $this->symposerStore = $store;
+        $this->wrapped = new \SplObjectStorage();
     }
 
     public function getComposer(bool $required = true, ?bool $disablePlugins = null, ?bool $disableScripts = null): ?Composer
@@ -329,7 +365,7 @@ final class SymposerApplication extends Application
             $dm = $composer->getDownloadManager();
             $exclude = excludes($composer);
             foreach (ARCHIVE_TYPES as $type) {
-                $dm->setDownloader($type, new StoreDownloader($dm->getDownloader($type), $this->store, $exclude, $this->getIO()));
+                $dm->setDownloader($type, new StoreDownloader($dm->getDownloader($type), $this->symposerStore, $exclude, $this->getIO()));
             }
         }
 

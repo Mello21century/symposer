@@ -4,7 +4,7 @@ pnpm-style package store for Composer. Every package version is stored **once** 
 
 ## Installation
 
-**Requirements:** PHP 8.1+ on your `PATH` (or set `SYMPOSER_PHP`). You do not need Composer installed: symposer downloads its own pinned, checksum-verified `composer.phar` on first run.
+**Requirements:** PHP 7.2.5+ on your `PATH` (or set `SYMPOSER_PHP`). You do not need Composer installed: symposer downloads its own pinned, checksum-verified `composer.phar` on first run.
 
 ### Option 1: prebuilt binary
 Download the binary for your platform from the [Releases page](https://github.com/Mello21century/symposer/releases).
@@ -54,6 +54,35 @@ symposer update             # instead of: composer update
 symposer require foo/bar    # any composer command works the same way
 symposer store status       # store location, package count, size
 ```
+
+### Choosing the PHP version
+symposer is a native binary, so `php74 symposer install` does **not** work: PHP can't run it. Set `SYMPOSER_PHP` to the PHP you want, either a command on your `PATH` or a full path. Composer then runs on that PHP, so dependency resolution and platform checks match it. Any PHP from **7.2.5** up works.
+
+Say your machine's default is PHP 8.3 and a project needs PHP 7.4:
+
+**macOS / Linux (bash, zsh)**
+```sh
+SYMPOSER_PHP=php7.4 symposer install            # Debian/Ubuntu (ondrej PPA) naming
+SYMPOSER_PHP=php74 symposer install             # Laravel Herd naming
+SYMPOSER_PHP=/opt/homebrew/opt/php@7.4/bin/php symposer install   # Homebrew (shivammathur/php)
+
+export SYMPOSER_PHP=php74                       # or: every symposer call in this shell
+alias symposer74='SYMPOSER_PHP=php74 symposer'  # or: a shortcut in ~/.zshrc / ~/.bashrc
+```
+
+**Windows (PowerShell)**
+```powershell
+$env:SYMPOSER_PHP = "C:\php74\php.exe"; symposer install
+```
+
+**Windows (cmd)**
+```bat
+set SYMPOSER_PHP=C:\php74\php.exe && symposer install
+```
+
+To check which PHP is used: `SYMPOSER_PHP=php74 symposer --version` prints Composer's version and the PHP version running it.
+
+Packages for different PHP versions share the store safely. Each one is keyed by its exact version and commit, so a PHP 7.4 project and a PHP 8.3 project link to whichever versions their own lock files ask for.
 
 ## How it works
 symposer is a single Go binary. It runs Composer's real install and update pipeline (a pinned, sha256-verified `composer.phar`, downloaded once), with one change: the archive downloaders are wrapped (`shim/symposer.php`).
