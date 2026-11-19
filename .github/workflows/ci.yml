@@ -23,6 +23,7 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
+          extensions: fileinfo, mbstring, pdo_sqlite, zip  # Laravel's needs; Windows PHP lacks fileinfo by default
           tools: none
       - run: go vet ./... && go build -o bin/symposer${{ runner.os == 'Windows' && '.exe' || '' }} .
       - run: e2e/run.sh bin/symposer${{ runner.os == 'Windows' && '.exe' || '' }}
