@@ -27,7 +27,7 @@ $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
 symposer store status
 ```
 
-### Option 2: with Go (1.22+)
+### Option 2: with Go (1.23+)
 ```sh
 go install github.com/Mello21century/symposer@latest
 ```

@@ -24,11 +24,6 @@ if ($phar === '' || !is_file($phar)) {
 }
 $home = getenv('SYMPOSER_HOME') ?: (getenv('HOME') ?: getenv('USERPROFILE')) . '/.symposer';
 
-// Make Composer see the usual argv (argv[0] = phar) so XdebugHandler restarts and help output behave.
-array_splice($_SERVER['argv'], 0, 2, [$phar]);
-$_SERVER['argc'] = count($_SERVER['argv']);
-$argv = $_SERVER['argv'];
-
 setlocale(LC_ALL, 'C');
 require 'phar://' . $phar . '/src/bootstrap.php';
 
@@ -38,7 +33,13 @@ if (version_compare(Composer::getVersion(), MIN_COMPOSER, '<')) {
 }
 
 error_reporting(-1);
+// Must run while argv still starts with this shim: the Xdebug-free restart re-executes argv as-is.
 (new \Composer\XdebugHandler\XdebugHandler('Composer'))->check();
+
+// Now make Composer see the usual argv (argv[0] = phar).
+array_splice($_SERVER['argv'], 0, 2, [$phar]);
+$_SERVER['argc'] = count($_SERVER['argv']);
+$argv = $_SERVER['argv'];
 if (PHP_SAPI === 'cli') {
     @ini_set('display_errors', 'stderr');
 }

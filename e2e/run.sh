@@ -12,9 +12,9 @@ die() { echo "FAIL $*" >&2; exit 1; }
 sym() { "$BIN" "$@" 2>&1 | tee "$WORK/last.log" >/dev/null || { cat "$WORK/last.log"; die "symposer $*"; }; }
 # where: prints "store" | "hardlink" | "dir" | "path:<target>" for a vendor path (works for symlinks and junctions)
 where() {
-  php -r '$p=$argv[1]; $s=realpath(getenv("SYMPOSER_HOME")."/store"); $r=realpath($p);
-    if ($r===false) { echo "missing"; exit; }
-    if ($r!==realpath(dirname($p))."/".basename($p)) { echo str_starts_with($r,$s) ? "store" : "path:".$r; exit; }
+  php -r '$n=fn($x)=>str_replace("\\","/",(string)$x); $p=$argv[1]; $s=$n(realpath(getenv("SYMPOSER_HOME")."/store")); $r=$n(realpath($p));
+    if ($r==="") { echo "missing"; exit; }
+    if ($r!==$n(realpath(dirname($p)))."/".basename($p)) { echo str_starts_with($r,$s) ? "store" : "path:".$r; exit; }
     $f=null; foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($p, FilesystemIterator::SKIP_DOTS)) as $x) { if ($x->isFile()) { $f=$x; break; } }
     echo ($f && stat($f->getPathname())["nlink"] > 1) ? "hardlink" : "dir";' "$1"
 }

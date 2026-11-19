@@ -19,7 +19,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version: stable  # go.mod's 1.22 floor builds macOS binaries without LC_UUID, which dyld rejects
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
@@ -39,7 +39,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version: stable  # go.mod's 1.22 floor builds macOS binaries without LC_UUID, which dyld rejects
       - name: cross-compile
         run: |
           for t in darwin/arm64 darwin/amd64 linux/amd64 linux/arm64 windows/amd64 windows/arm64; do
