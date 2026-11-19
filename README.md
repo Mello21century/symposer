@@ -22,7 +22,8 @@ symposer store status
 ```powershell
 $dir = "$env:LOCALAPPDATA\symposer"; New-Item -ItemType Directory -Force $dir | Out-Null
 Invoke-WebRequest https://github.com/Mello21century/symposer/releases/latest/download/symposer-windows-amd64.exe -OutFile "$dir\symposer.exe"
-[Environment]::SetEnvironmentVariable("Path", "$env:Path;$dir", "User")   # then open a new terminal
+$userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+[Environment]::SetEnvironmentVariable("Path", "$userPath;$dir", "User")   # then open a new terminal
 symposer store status
 ```
 
