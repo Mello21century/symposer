@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>symposer docs</title>
+<meta name="description" content="Install symposer, choose a PHP version, and understand how packages are stored and linked.">
+<meta property="og:title" content="symposer docs">
+<meta property="og:image" content="https://mello21century.github.io/symposer/assets/banner.png">
+<link rel="icon" href="assets/mark.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Martian+Mono:wght@400;500&family=Schibsted+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/site.css">
+<style>
+  .layout { display: grid; gap: 2rem; padding-top: 3rem; }
+  @media (min-width: 900px) { .layout { grid-template-columns: 220px minmax(0, 1fr); gap: 4rem; } }
+  .layout > * { min-width: 0; }
+  .toc { font-size: .95rem; }
+  .toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: .1rem; }
+  .toc a { display: block; padding: .3rem .6rem; margin-left: -.6rem; border-radius: 6px; color: var(--ink-soft); text-decoration: none; }
+  .toc a:hover { color: var(--ink); background: var(--paper); }
+  .toc a.on { color: var(--ink); font-weight: 600; box-shadow: inset 3px 0 var(--link); border-radius: 0 6px 6px 0; }
+  @media (min-width: 900px) { .toc { position: sticky; top: 5.5rem; align-self: start; } }
+  @media (max-width: 899px) {
+    .toc { border: 1px solid var(--line); border-radius: 10px; padding: .75rem 1rem; background: var(--paper); }
+    .toc ol { grid-template-columns: 1fr 1fr; }
+  }
+
+  .doc { max-width: var(--measure); }
+  .doc h1 { font-size: clamp(2.2rem, 5vw, 3.2rem); letter-spacing: -.04em; line-height: 1; margin: 0 0 1rem; font-weight: 800; }
+  .doc > p.lede { font-size: 1.15rem; color: var(--ink-soft); margin: 0 0 3rem; }
+  .doc section { padding-top: 2.5rem; margin-top: 2.5rem; border-top: 1px solid var(--line); }
+  .doc h2 { font-size: 1.65rem; letter-spacing: -.025em; margin: 0 0 1rem; font-weight: 700; }
+  .doc h3 { font-size: 1.1rem; margin: 2rem 0 .6rem; font-weight: 700; }
+  .doc p, .doc li { color: var(--ink); }
+  .doc ul { padding-left: 1.2rem; }
+  .doc li { margin: .35rem 0; }
+  .doc .cmd, .doc pre { margin: 1rem 0; }
+  .note { border-left: 3px solid var(--link); padding: .2rem 0 .2rem 1rem; color: var(--ink-soft); }
+  .doc dl { margin: 0; }
+  .doc dt { font-weight: 700; margin-top: 1.25rem; }
+  .doc dd { margin: .25rem 0 0; color: var(--ink-soft); }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="./"><img src="assets/mark.svg" width="26" height="26" alt="">symposer</a>
+    <nav aria-label="Main">
+      <a href="docs.html" aria-current="page">Docs</a>
+      <a href="https://github.com/Mello21century/symposer/releases">Releases</a>
+      <a href="https://github.com/Mello21century/symposer">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap layout">
+  <nav class="toc" aria-label="On this page">
+    <ol>
+      <li><a href="#install">Install</a></li>
+      <li><a href="#commands">Commands</a></li>
+      <li><a href="#php">PHP version</a></li>
+      <li><a href="#how">How it works</a></li>
+      <li><a href="#vendor">What's in vendor/</a></li>
+      <li><a href="#exclude">Opting out</a></li>
+      <li><a href="#env">Environment</a></li>
+      <li><a href="#store">The store</a></li>
+      <li><a href="#trouble">Troubleshooting</a></li>
+      <li><a href="#contributing">Contributing</a></li>
+    </ol>
+  </nav>
+
+  <main class="doc">
+    <h1>Documentation</h1>
+    <p class="lede">symposer is a drop-in front end for Composer. Use it wherever you'd type <code>composer</code>, and packages are stored once and linked into each project.</p>
+
+    <section id="install">
+      <h2>Install</h2>
+      <p>You need PHP 7.2.5 or newer. You don't need Composer: on first run symposer downloads its own pinned <code>composer.phar</code> and checks it against a sha256 checksum.</p>
+
+      <h3>macOS and Linux</h3>
+      <p>This picks the right binary for your OS and CPU:</p>
+      <div class="cmd"><pre><span class="p">$ </span>curl -fsSL -o symposer "https://github.com/Mello21century/symposer/releases/latest/download/symposer-$(uname -s | tr A-Z a-z)-$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')"
+<span class="p">$ </span>chmod +x symposer &amp;&amp; sudo mv symposer /usr/local/bin/</pre></div>
+
+      <h3>Windows (PowerShell)</h3>
+      <p>Installs to your user folder and adds it to your user <code>PATH</code>. No admin rights needed. Open a new terminal afterwards.</p>
+      <div class="cmd"><pre><span class="p">&gt; </span>$dir = "$env:LOCALAPPDATA\symposer"; New-Item -ItemType Directory -Force $dir | Out-Null
+<span class="p">&gt; </span>Invoke-WebRequest https://github.com/Mello21century/symposer/releases/latest/download/symposer-windows-amd64.exe -OutFile "$dir\symposer.exe"
+<span class="p">&gt; </span>[Environment]::SetEnvironmentVariable("Path", [Environment]::GetEnvironmentVariable("Path", "User") + ";$dir", "User")</pre></div>
+
+      <h3>With Go 1.23+</h3>
+      <div class="cmd"><pre><span class="p">$ </span>go install github.com/Mello21century/symposer@latest</pre></div>
+      <p>The binary lands in <code>$(go env GOPATH)/bin</code>. Make sure that folder is on your <code>PATH</code>.</p>
+
+      <h3>Check it works</h3>
+      <div class="cmd"><pre><span class="p">$ </span>symposer store status   <span class="c"># version, store location, package count</span>
+<span class="p">$ </span>symposer --version      <span class="c"># Composer and PHP versions in use</span></pre></div>
+    </section>
+
+    <section id="commands">
+      <h2>Commands</h2>
+      <p>Every Composer command works. symposer passes the arguments straight through.</p>
+      <div class="cmd"><pre><span class="p">$ </span>symposer install
+<span class="p">$ </span>symposer update
+<span class="p">$ </span>symposer require monolog/monolog
+<span class="p">$ </span>symposer remove --dev phpunit/phpunit</pre></div>
+      <p>The only command of its own is <code>store</code>:</p>
+      <dl>
+        <dt><code>symposer store status</code></dt><dd>Prints the symposer and Composer versions, the store path, how many packages and versions it holds, and its size.</dd>
+        <dt><code>symposer store path</code></dt><dd>Prints the store path, handy in scripts.</dd>
+      </dl>
+      <p>After each run symposer prints a summary:</p>
+      <pre>symposer: 112 package(s) linked from store, 3 newly stored</pre>
+    </section>
+
+    <section id="php">
+      <h2>Choosing the PHP version</h2>
+      <p>symposer is a native binary, so <code>php74 symposer install</code> won't work. Set <code>SYMPOSER_PHP</code> to a command on your <code>PATH</code> or a full path instead. Composer then runs on that PHP, so dependency resolution and platform checks match it.</p>
+      <div class="cmd"><pre><span class="c"># default PHP is 8.3, this project needs 7.4</span>
+<span class="p">$ </span>SYMPOSER_PHP=php7.4 symposer install          <span class="c"># Debian/Ubuntu (ondrej PPA)</span>
+<span class="p">$ </span>SYMPOSER_PHP=php74 symposer install           <span class="c"># Laravel Herd</span>
+<span class="p">$ </span>SYMPOSER_PHP=/opt/homebrew/opt/php@7.4/bin/php symposer install</pre></div>
+      <p>To keep it for a whole shell session, or as a shortcut:</p>
+      <div class="cmd"><pre><span class="p">$ </span>export SYMPOSER_PHP=php81
+<span class="p">$ </span>alias symposer81='SYMPOSER_PHP=php81 symposer'   <span class="c"># in ~/.zshrc or ~/.bashrc</span></pre></div>
+      <p>On Windows:</p>
+      <div class="cmd"><pre><span class="p">&gt; </span>$env:SYMPOSER_PHP = "C:\php74\php.exe"; symposer install     <span class="c"># PowerShell</span>
+<span class="p">&gt; </span>set SYMPOSER_PHP=C:\php74\php.exe &amp;&amp; symposer install        <span class="c"># cmd</span></pre></div>
+      <p class="note">Projects on different PHP versions share one store safely. Every entry is keyed by exact version and commit, so each project links to what its own lock file asks for.</p>
+    </section>
+
+    <section id="how">
+      <h2>How it works</h2>
+      <p>symposer is one Go binary with a small PHP shim embedded in it. When you run a command, it starts the pinned Composer through that shim. The shim wraps Composer's archive downloaders (zip, tar, gzip, xz, rar, phar, file) and changes nothing else.</p>
+      <ul>
+        <li><strong>Store hit:</strong> <code>vendor/acme/pkg</code> becomes a link to <code>~/.symposer/store/acme/pkg/&lt;version&gt;-&lt;ref&gt;/</code>. That's a symlink on macOS and Linux, and a junction on Windows, which needs no admin rights or developer mode.</li>
+        <li><strong>Store miss:</strong> Composer downloads the package as usual, with your auth, cache and mirrors. It's extracted into a temporary folder, moved into the store in one atomic rename, made read-only, then linked.</li>
+        <li><strong>Packages with <code>bin</code> scripts</strong> get a real folder of hardlinks instead. Tools like Pest locate <code>vendor/autoload.php</code> through <code>__DIR__</code>, and PHP resolves <code>__DIR__</code> through symlinks.</li>
+      </ul>
+      <p>Composer handles everything else exactly as it would without symposer: resolution, <code>composer.lock</code>, private repositories, plugins and their events, <code>installer-paths</code>, scripts, <code>installed.php</code> and <code>vendor/bin</code>.</p>
+      <p>The Composer version is pinned (currently 2.11.2) because the shim depends on Composer internals. Each symposer release is tested against the version it ships with.</p>
+    </section>
+
+    <section id="vendor">
+      <h2>What ends up in vendor/</h2>
+      <div class="scroll-x">
+        <table>
+          <thead><tr><th scope="col">Package kind</th><th scope="col">Result in vendor/</th></tr></thead>
+          <tbody>
+            <tr><td>Regular dist package</td><td>Symlink or junction to the store</td></tr>
+            <tr><td>Package with <code>bin</code> entries</td><td>Hardlinked tree from the store</td></tr>
+            <tr><td><code>path</code> repository</td><td>Composer's own symlink to your local folder, never stored</td></tr>
+            <tr><td><code>--prefer-source</code> or git source</td><td>Regular clone, never stored</td></tr>
+            <tr><td>Excluded or patched package</td><td>Regular copy</td></tr>
+            <tr><td>Dev branch without a commit reference</td><td>Regular copy</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="exclude">
+      <h2>Opting packages out</h2>
+      <p>A shared store means a package that writes into its own folder would change it for every project. Store files are read-only, so that fails with a clear error instead. Install such a package as a normal copy:</p>
+      <pre>{
+  "extra": {
+    "symposer": { "exclude": ["vendor/package"] }
+  }
+}</pre>
+      <p>Packages patched by <code>cweagans/composer-patches</code> are excluded automatically. symposer reads <code>extra.patches</code>, <code>extra.patches-file</code> and <code>patches.json</code>.</p>
+    </section>
+
+    <section id="env">
+      <h2>Environment variables</h2>
+      <div class="scroll-x">
+        <table>
+          <thead><tr><th scope="col">Variable</th><th scope="col">Default</th><th scope="col">Use it to</th></tr></thead>
+          <tbody>
+            <tr><td><code>SYMPOSER_PHP</code></td><td><code>php</code> on <code>PATH</code></td><td>Run Composer on a specific PHP</td></tr>
+            <tr><td><code>SYMPOSER_HOME</code></td><td><code>~/.symposer</code></td><td>Move the store and runtime files, for example to a bigger disk or a CI cache folder</td></tr>
+            <tr><td><code>SYMPOSER_COMPOSER</code></td><td>pinned phar</td><td>Use another <code>composer.phar</code>, at your own risk</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Composer's own variables, such as <code>COMPOSER_AUTH</code>, <code>COMPOSER_MEMORY_LIMIT</code> and <code>COMPOSER_NO_INTERACTION</code>, work as usual.</p>
+    </section>
+
+    <section id="store">
+      <h2>The store</h2>
+      <p>Everything lives in <code>~/.symposer</code>:</p>
+      <pre>~/.symposer/
+  composer-2.11.2.phar      <span class="c"># pinned Composer, downloaded once</span>
+  runtime/shim-*.php        <span class="c"># the embedded shim</span>
+  store/&lt;vendor&gt;/&lt;name&gt;/&lt;version&gt;-&lt;ref&gt;/</pre>
+      <p>Updating a package links the new version and leaves the old one in the store, so other projects still on it keep working. Removing a package only removes the link.</p>
+      <p>There's no automatic cleanup yet. To start fresh, delete <code>~/.symposer/store</code>, then run <code>symposer install</code> in each project that used it.</p>
+      <h3>Uninstall</h3>
+      <p>Delete the binary and <code>~/.symposer</code>, then run <code>composer install</code> in your projects to replace the links with real folders.</p>
+    </section>
+
+    <section id="trouble">
+      <h2>Troubleshooting</h2>
+      <dl>
+        <dt>Permission denied writing inside vendor/some/package</dt>
+        <dd>That package modifies its own files. Add it to <code>extra.symposer.exclude</code> and run <code>symposer install</code> again.</dd>
+        <dt>php not found on PATH</dt>
+        <dd>Install PHP, or point <code>SYMPOSER_PHP</code> at the binary you want.</dd>
+        <dt>PHP 7.2.5+ required</dt>
+        <dd>Your default <code>php</code> is too old for Composer 2.11. Set <code>SYMPOSER_PHP</code> to a newer one.</dd>
+        <dt>A bin script can't find vendor/autoload.php</dt>
+        <dd>Packages with <code>bin</code> entries are hardlinked to avoid this. If a package finds files some other way, exclude it and <a href="https://github.com/Mello21century/symposer/issues">open an issue</a> with its name.</dd>
+      </dl>
+    </section>
+
+    <section id="contributing">
+      <h2>Contributing</h2>
+      <p>Bug reports, package compatibility notes and pull requests are all welcome. If a package misbehaves when linked, an issue with its name and the error is already a big help.</p>
+      <div class="cmd"><pre><span class="p">$ </span>git clone https://github.com/Mello21century/symposer.git &amp;&amp; cd symposer
+<span class="p">$ </span>go build -o bin/symposer .
+<span class="p">$ </span>e2e/run.sh bin/symposer                 <span class="c"># needs php and network</span>
+<span class="p">$ </span>E2E_LARAVEL=1 e2e/run.sh bin/symposer   <span class="c"># adds a full Laravel + Pest run</span></pre></div>
+      <ul>
+        <li><code>main.go</code> is the CLI: it finds PHP, downloads Composer, and implements <code>store</code>.</li>
+        <li><code>shim/symposer.php</code> is the store logic that runs inside Composer. Keep it PHP 7.2.5 compatible.</li>
+        <li><code>e2e/run.sh</code> is the end-to-end suite. CI runs it on Linux, macOS and Windows, and on PHP 7.2 through 8.4.</li>
+      </ul>
+      <p>Open an issue first for larger changes, so we can agree on the approach.</p>
+    </section>
+  </main>
+</div>
+
+<footer class="foot">
+  <div class="wrap">
+    <span>symposer is built in the open by <a href="https://github.com/Mello21century/symposer/graphs/contributors">its contributors</a>.</span>
+    <span><a href="https://github.com/Mello21century/symposer/issues">Report an issue</a></span>
+  </div>
+</footer>
+<script src="assets/site.js"></script>
+<script>
+  // highlight the section in view
+  const links = new Map([...document.querySelectorAll('.toc a')].map((a) => [a.hash.slice(1), a]));
+  const spy = new IntersectionObserver((entries) => entries.forEach((e) => {
+    if (!e.isIntersecting) return;
+    links.forEach((a) => a.classList.remove('on'));
+    links.get(e.target.id)?.classList.add('on');
+  }), { rootMargin: '-20% 0px -70% 0px' });
+  document.querySelectorAll('.doc section').forEach((s) => spy.observe(s));
+</script>
+</body>
+</html>

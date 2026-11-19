@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>symposer: one package store for every PHP project</title>
+<meta name="description" content="A pnpm-style package store for Composer. Every package version is stored once in ~/.symposer/store and each project's vendor/ links into it.">
+<meta property="og:title" content="symposer">
+<meta property="og:description" content="One package store for every PHP project. Composer installs, without the copies.">
+<meta property="og:image" content="https://mello21century.github.io/symposer/assets/banner.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/mark.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Martian+Mono:wght@400;500&family=Schibsted+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/site.css">
+<style>
+  .hero { display: grid; gap: 3rem; padding-top: 4.5rem; padding-bottom: 3rem; align-items: center; }
+  @media (min-width: 980px) { .hero { grid-template-columns: 5fr 7fr; padding-top: 6rem; } }
+  .hero > * { min-width: 0; }
+  .band h2 code { background: none; border: 0; padding: 0; font-size: .72em; }
+  .hero h1 {
+    font-size: clamp(2.6rem, 6vw, 4.4rem); line-height: .98; letter-spacing: -.045em;
+    font-weight: 800; margin: 0 0 1.5rem; max-width: 11ch; text-wrap: balance;
+  }
+  .lede { font-size: 1.2rem; color: var(--ink-soft); margin: 0 0 2rem; max-width: 34rem; }
+  .lede code { font-size: .78em; }
+  .install { max-width: 34rem; }
+  .actions { display: flex; gap: .75rem; margin-top: 1.5rem; flex-wrap: wrap; }
+  .btn {
+    display: inline-block; padding: .7rem 1.15rem; border-radius: 8px; font-weight: 600;
+    text-decoration: none; border: 1.5px solid var(--ink); color: var(--ink);
+  }
+  .btn.solid { background: var(--ink); color: var(--fog); }
+  .btn:hover { text-decoration: none; box-shadow: 0 3px 0 var(--link); }
+
+  .diagram { overflow-x: auto; margin: 0 -16px; padding: 0 16px; }
+  .diagram svg { min-width: 520px; width: 100%; height: auto; }
+  .diagram figcaption { color: var(--ink-soft); font-size: .9rem; margin-top: .75rem; max-width: 40rem; }
+  .d-box { fill: var(--paper); stroke: var(--line); }
+  .d-store { fill: var(--store); }
+  .d-row { fill: var(--fog); }
+  .d-srow { fill: color-mix(in srgb, #fff 18%, var(--store)); }
+  .d-head { font: 600 14px var(--display); fill: var(--ink); }
+  .d-shead { font: 600 14px var(--display); fill: #fff; }
+  .d-pkg { font: 400 12px var(--mono); fill: var(--ink); }
+  .d-spkg { font: 400 12px var(--mono); fill: #fff; }
+  .d-ver { font: 400 11px var(--mono); fill: #E2E3F5; }
+  .wire { fill: none; stroke: var(--link); stroke-width: 2.25; }
+  .dot { fill: var(--link); }
+  @media (prefers-reduced-motion: no-preference) {
+    .wire { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw .8s cubic-bezier(.6,0,.2,1) forwards; animation-delay: calc(var(--i) * 80ms + 250ms); }
+    @keyframes draw { to { stroke-dashoffset: 0; } }
+  }
+
+  section.band { padding: 4.5rem 0; border-top: 1px solid var(--line); }
+  .band h2 { font-size: clamp(1.8rem, 3.4vw, 2.5rem); letter-spacing: -.03em; line-height: 1.1; margin: 0 0 1rem; font-weight: 700; max-width: 22ch; }
+  .band .intro { color: var(--ink-soft); max-width: var(--measure); margin: 0 0 2.5rem; }
+  .split { display: grid; gap: 2.5rem; }
+  @media (min-width: 900px) { .split { grid-template-columns: 4fr 7fr; gap: 4rem; } }
+
+  .bars { display: grid; gap: 1.4rem; max-width: 46rem; }
+  .bar-label { display: flex; justify-content: space-between; font-weight: 500; margin-bottom: .4rem; }
+  .bar-label b { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .bar { height: 18px; border-radius: 4px; background: var(--ink); }
+  .bar.ours { background: var(--store); width: max(3.4%, 10px); }
+  .bars small { color: var(--ink-soft); }
+
+  .works { display: grid; gap: 0; margin: 0; }
+  @media (min-width: 720px) { .works { grid-template-columns: 1fr 1fr; column-gap: 3rem; } }
+  .works div { padding: 1.1rem 0; border-top: 1px solid var(--line); }
+  .works dt { font-weight: 700; }
+  .works dd { margin: .2rem 0 0; color: var(--ink-soft); }
+
+  .kinds td:first-child { font-weight: 600; white-space: nowrap; }
+  .tag { display: inline-block; font-size: .8rem; font-weight: 600; padding: .1rem .5rem; border-radius: 99px; white-space: nowrap; }
+  .tag.link { background: var(--link); color: #3A2A00; }
+  .tag.hard { background: var(--store); color: #fff; }
+  .tag.plain { background: var(--paper); border: 1px solid var(--line); color: var(--ink-soft); }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="./"><img src="assets/mark.svg" width="26" height="26" alt="">symposer</a>
+    <nav aria-label="Main">
+      <a href="docs.html">Docs</a>
+      <a href="https://github.com/Mello21century/symposer/releases">Releases</a>
+      <a href="https://github.com/Mello21century/symposer">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <div>
+      <h1>Every Composer package, stored once.</h1>
+      <p class="lede">symposer runs Composer's own install, then links each package in <code>vendor/</code> to one shared copy in <code>~/.symposer/store</code>. A second Laravel app needs 2.6&nbsp;MB of new disk instead of 77&nbsp;MB.</p>
+
+      <div class="install">
+        <div class="tabs" role="tablist" aria-label="Install for">
+          <button role="tab" id="t-unix" aria-controls="p-unix" data-os="unix">macOS / Linux</button>
+          <button role="tab" id="t-win" aria-controls="p-win" data-os="windows">Windows</button>
+          <button role="tab" id="t-go" aria-controls="p-go">Go</button>
+        </div>
+        <div class="cmd" role="tabpanel" id="p-unix" aria-labelledby="t-unix">
+<pre><span class="p">$ </span>curl -fsSL -o symposer "https://github.com/Mello21century/symposer/releases/latest/download/symposer-$(uname -s | tr A-Z a-z)-$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')"
+<span class="p">$ </span>chmod +x symposer &amp;&amp; sudo mv symposer /usr/local/bin/</pre>
+        </div>
+        <div class="cmd" role="tabpanel" id="p-win" aria-labelledby="t-win" hidden>
+<pre><span class="p">&gt; </span>$dir = "$env:LOCALAPPDATA\symposer"; New-Item -ItemType Directory -Force $dir | Out-Null
+<span class="p">&gt; </span>Invoke-WebRequest https://github.com/Mello21century/symposer/releases/latest/download/symposer-windows-amd64.exe -OutFile "$dir\symposer.exe"
+<span class="p">&gt; </span>[Environment]::SetEnvironmentVariable("Path", [Environment]::GetEnvironmentVariable("Path", "User") + ";$dir", "User")</pre>
+        </div>
+        <div class="cmd" role="tabpanel" id="p-go" aria-labelledby="t-go" hidden>
+<pre><span class="p">$ </span>go install github.com/Mello21century/symposer@latest</pre>
+        </div>
+      </div>
+
+      <div class="actions">
+        <a class="btn solid" href="docs.html">Read the docs</a>
+        <a class="btn" href="https://github.com/Mello21century/symposer">View source</a>
+      </div>
+    </div>
+
+    <figure class="diagram" style="margin:0">
+      <svg viewBox="0 0 680 420" role="img" aria-labelledby="dg-title">
+        <title id="dg-title">Two projects, shop and blog, each with four packages in vendor. Their shared packages link to a single copy in the symposer store.</title>
+        <!-- links (drawn first, under the boxes) -->
+        <g>
+          <path class="wire" pathLength="1" style="--i:0" d="M238 57 C334 57 334 152 442 152"/>
+          <path class="wire" pathLength="1" style="--i:1" d="M238 89 C334 89 334 184 442 184"/>
+          <path class="wire" pathLength="1" style="--i:2" d="M238 121 C334 121 334 216 442 216"/>
+          <path class="wire" pathLength="1" style="--i:3" d="M238 153 C334 153 334 280 442 280"/>
+          <path class="wire" pathLength="1" style="--i:4" d="M238 299 C334 299 334 152 442 152"/>
+          <path class="wire" pathLength="1" style="--i:5" d="M238 331 C334 331 334 184 442 184"/>
+          <path class="wire" pathLength="1" style="--i:6" d="M238 363 C334 363 334 248 442 248"/>
+          <path class="wire" pathLength="1" style="--i:7" d="M238 395 C334 395 334 280 442 280"/>
+        </g>
+
+        <rect class="d-box" x="0.5" y="0.5" width="250" height="178" rx="10"/>
+        <text class="d-head" x="16" y="28">~/Sites/shop/vendor</text>
+        <rect class="d-row" x="12" y="44" width="226" height="26" rx="5"/><text class="d-pkg" x="22" y="61">laravel/framework</text>
+        <rect class="d-row" x="12" y="76" width="226" height="26" rx="5"/><text class="d-pkg" x="22" y="93">monolog/monolog</text>
+        <rect class="d-row" x="12" y="108" width="226" height="26" rx="5"/><text class="d-pkg" x="22" y="125">guzzlehttp/guzzle</text>
+        <rect class="d-row" x="12" y="140" width="226" height="26" rx="5"/><text class="d-pkg" x="22" y="157">pestphp/pest</text>
+
+        <rect class="d-box" x="0.5" y="241.5" width="250" height="178" rx="10"/>
+        <text class="d-head" x="16" y="270">~/Sites/blog/vendor</text>
+        <rect class="d-row" x="12" y="286" width="226" height="26" rx="5"/><text class="d-pkg" x="22" y="303">laravel/framework</text>
+        <rect class="d-row" x="12" y="318" width="226" height="26" rx="5"/><text class="d-pkg" x="22" y="335">monolog/monolog</text>
+        <rect class="d-row" x="12" y="350" width="226" height="26" rx="5"/><text class="d-pkg" x="22" y="367">symfony/console</text>
+        <rect class="d-row" x="12" y="382" width="226" height="26" rx="5"/><text class="d-pkg" x="22" y="399">pestphp/pest</text>
+
+        <rect class="d-store" x="430" y="95" width="250" height="212" rx="10"/>
+        <text class="d-shead" x="446" y="123">~/.symposer/store</text>
+        <g>
+          <rect class="d-srow" x="442" y="139" width="226" height="26" rx="5"/><text class="d-spkg" x="452" y="156">laravel/framework</text><text class="d-ver" x="658" y="156" text-anchor="end">12.38.1</text>
+          <rect class="d-srow" x="442" y="171" width="226" height="26" rx="5"/><text class="d-spkg" x="452" y="188">monolog/monolog</text><text class="d-ver" x="658" y="188" text-anchor="end">3.9.0</text>
+          <rect class="d-srow" x="442" y="203" width="226" height="26" rx="5"/><text class="d-spkg" x="452" y="220">guzzlehttp/guzzle</text><text class="d-ver" x="658" y="220" text-anchor="end">7.10.0</text>
+          <rect class="d-srow" x="442" y="235" width="226" height="26" rx="5"/><text class="d-spkg" x="452" y="252">symfony/console</text><text class="d-ver" x="658" y="252" text-anchor="end">7.3.4</text>
+          <rect class="d-srow" x="442" y="267" width="226" height="26" rx="5"/><text class="d-spkg" x="452" y="284">pestphp/pest</text><text class="d-ver" x="658" y="284" text-anchor="end">4.1.2</text>
+        </g>
+        <g class="dots">
+          <circle class="dot" cx="238" cy="57" r="3.5"/><circle class="dot" cx="238" cy="89" r="3.5"/><circle class="dot" cx="238" cy="121" r="3.5"/><circle class="dot" cx="238" cy="153" r="3.5"/>
+          <circle class="dot" cx="238" cy="299" r="3.5"/><circle class="dot" cx="238" cy="331" r="3.5"/><circle class="dot" cx="238" cy="363" r="3.5"/><circle class="dot" cx="238" cy="395" r="3.5"/>
+        </g>
+      </svg>
+      <figcaption>Eight packages across two projects, five copies on disk. Each <code>vendor/</code> entry is a symlink (a junction on Windows) into the store.</figcaption>
+    </figure>
+  </div>
+
+  <section class="band">
+    <div class="wrap split">
+      <div>
+        <h2>Measured on a second Laravel app</h2>
+        <p class="intro">A fresh <code>laravel/laravel</code> install with the same lock file as a project you already have. Time is about the same, since Composer still generates the autoloader.</p>
+      </div>
+      <div class="bars">
+        <div>
+          <div class="bar-label"><span>composer install</span><b>77 MB</b></div>
+          <div class="bar" style="width:100%"></div>
+        </div>
+        <div>
+          <div class="bar-label"><span>symposer install</span><b>2.6 MB</b></div>
+          <div class="bar ours"></div>
+        </div>
+        <small>New disk used by <code>vendor/</code> when its packages are already in the store.</small>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="wrap">
+      <h2>Composer still does the work</h2>
+      <p class="intro">symposer doesn't resolve or download anything itself. It runs the real Composer pipeline and only changes where archives get extracted, so the rest of your setup behaves as before.</p>
+      <dl class="works">
+        <div><dt>Private packages</dt><dd><code>auth.json</code>, <code>COMPOSER_AUTH</code>, GitHub and GitLab tokens, Private Packagist, SSH keys.</dd></div>
+        <div><dt>Path repositories</dt><dd>Local packages you're editing stay as Composer's own symlinks and never enter the store.</dd></div>
+        <div><dt>Plugins and scripts</dt><dd><code>post-autoload-dump</code>, <code>package:discover</code>, Flex recipes, and every plugin event fire as usual.</dd></div>
+        <div><dt>Custom install paths</dt><dd><code>composer/installers</code> and <code>installer-paths</code> for WordPress or Drupal get their link where they expect it.</dd></div>
+        <div><dt>Lock file and metadata</dt><dd><code>composer.lock</code>, <code>installed.php</code>, <code>InstalledVersions</code> and <code>vendor/bin</code> are untouched.</dd></div>
+        <div><dt>Plain Composer</dt><dd>Plain <code>composer</code> still works in the same project. Packages it installs or updates become regular folders.</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="wrap split">
+      <div>
+        <h2>What ends up in <code>vendor/</code></h2>
+        <p class="intro">Store files are read-only, so a package that writes into itself fails loudly instead of changing every project that shares it.</p>
+      </div>
+      <div class="scroll-x">
+        <table class="kinds">
+          <thead><tr><th scope="col">Package</th><th scope="col">Becomes</th></tr></thead>
+          <tbody>
+            <tr><td>Regular dist package</td><td><span class="tag link">link</span> to the store</td></tr>
+            <tr><td>Package with <code>bin</code> scripts</td><td><span class="tag hard">hardlinks</span> so <code>__DIR__</code> finds your autoloader</td></tr>
+            <tr><td>Path repository</td><td><span class="tag plain">Composer's link</span> to your local folder</td></tr>
+            <tr><td>Git source install</td><td><span class="tag plain">clone</span> in place</td></tr>
+            <tr><td>Patched or excluded</td><td><span class="tag plain">copy</span> in place</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="wrap split">
+      <div>
+        <h2>Pick the PHP per command</h2>
+        <p class="intro">Composer runs on whichever PHP you name, from 7.2.5 up, so platform checks match that project. Store entries are keyed by exact version and commit, so projects on different PHP versions share it safely.</p>
+      </div>
+      <div class="cmd">
+<pre><span class="c"># default PHP is 8.3, this project needs 7.4</span>
+<span class="p">$ </span>SYMPOSER_PHP=php7.4 symposer install
+<span class="p">$ </span>SYMPOSER_PHP=/opt/homebrew/opt/php@8.1/bin/php symposer update
+
+<span class="c"># check which PHP and Composer will run</span>
+<span class="p">$ </span>SYMPOSER_PHP=php7.4 symposer --version</pre>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <span>symposer is built in the open by <a href="https://github.com/Mello21century/symposer/graphs/contributors">its contributors</a>.</span>
+    <span><a href="docs.html#contributing">Contribute</a> &nbsp; <a href="https://github.com/Mello21century/symposer/issues">Report an issue</a></span>
+  </div>
+</footer>
+<script src="assets/site.js"></script>
+</body>
+</html>
