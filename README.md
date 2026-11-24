@@ -109,7 +109,7 @@ Composer still does everything else, so these work unchanged: resolution, `compo
 | `--prefer-source` / git source | normal clone (never stored) |
 | excluded or patched (`extra.patches`) | normal copy |
 
-:broom: Updating a package never deletes the old version, since another project may still use it. Each run records which versions the project uses, and `symposer store prune` deletes the ones no project uses anymore (including those of deleted projects). Projects last installed with symposer < 0.2.0 aren't recorded yet: run `symposer install` in them once before pruning.
+:broom: Updating a package never deletes the old version, since another project may still use it. Each run records which versions the project uses, and `symposer store prune` deletes the ones no project uses anymore (including those of deleted projects). Set `SYMPOSER_AUTO_PRUNE=1` to prune automatically after each install, update, require or remove. Projects last installed with symposer < 0.2.0 aren't recorded yet: run `symposer install` in them once before pruning.
 
 :lock: Store files are made read-only (except on Windows), so a package that writes into itself fails loudly instead of changing every project that shares it.
 
@@ -125,6 +125,7 @@ Packages patched by `cweagans/composer-patches` (`extra.patches`, `patches-file`
 | `SYMPOSER_HOME` | `~/.symposer` |
 | `SYMPOSER_PHP` | `php` on PATH |
 | `SYMPOSER_COMPOSER` | pinned phar (other versions at your own risk) |
+| `SYMPOSER_AUTO_PRUNE` | off. Set to `1` to run `store prune` after each successful install, update, require or remove |
 
 ## :books: Documentation
 The full guide, with troubleshooting and store details, is at **[mello21century.github.io/symposer/docs.html](https://mello21century.github.io/symposer/docs.html)**.

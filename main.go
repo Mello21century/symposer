@@ -41,7 +41,25 @@ func main() {
 		storeCmd(home, args[1:])
 		return
 	}
-	os.Exit(runComposer(home, args))
+	code := runComposer(home, args)
+	if code == 0 && os.Getenv("SYMPOSER_AUTO_PRUNE") == "1" && changesVendor(args) {
+		if err := pruneStore(home, false, true); err != nil {
+			fmt.Fprintln(os.Stderr, "symposer: auto-prune failed:", err)
+		}
+	}
+	os.Exit(code)
+}
+
+// changesVendor reports whether args run a Composer command that can relink vendor/.
+// ponytail: matches any arg, not just the command position; a bare "update" can't be a package name.
+func changesVendor(args []string) bool {
+	for _, a := range args {
+		switch a {
+		case "install", "i", "update", "u", "upgrade", "require", "r", "remove", "rm", "uninstall":
+			return true
+		}
+	}
+	return false
 }
 
 func symposerHome() (string, error) {
@@ -158,7 +176,7 @@ func storeCmd(home string, args []string) {
 			version, composerVersion, store, pkgs, versions, float64(size)/1e6)
 	case "prune":
 		dry := len(args) > 1 && args[1] == "--dry-run"
-		if err := pruneStore(home, dry); err != nil {
+		if err := pruneStore(home, dry, false); err != nil {
 			fail(err)
 		}
 	default:
@@ -194,7 +212,8 @@ func storeStats(store string) (pkgs, versions int, size int64, err error) {
 }
 
 // pruneStore deletes store versions that no recorded project (projects/*.json, written by the shim) uses.
-func pruneStore(home string, dryRun bool) error {
+// quiet (auto-prune) prints one line, and only when something was removed.
+func pruneStore(home string, dryRun, quiet bool) error {
 	// skip fresh dirs: an install may be running that has not recorded its project yet
 	minAge := time.Hour
 	if v := os.Getenv("SYMPOSER_PRUNE_MIN_AGE"); v != "" { // for tests
@@ -293,6 +312,12 @@ func pruneStore(home string, dryRun bool) error {
 		}
 	}
 
+	if quiet {
+		if removed > 0 {
+			fmt.Fprintf(os.Stderr, "symposer: auto-pruned %d unused version(s) from the store, %.1f MB freed\n", removed, float64(freed)/1e6)
+		}
+		return nil
+	}
 	fmt.Printf("%s %d version(s), %.1f MB; kept %d, used by %d project(s)\n", verb, removed, float64(freed)/1e6, kept, projects)
 	fmt.Println("note: projects last installed with symposer < 0.2.0 are not tracked; run `symposer install` in them first")
 	return nil

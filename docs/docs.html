@@ -72,6 +72,7 @@
       <li><a href="#exclude">Opting out</a></li>
       <li><a href="#env">Environment</a></li>
       <li><a href="#store">The store</a></li>
+      <li><a href="#cleanup">Cleaning up</a></li>
       <li><a href="#trouble">Troubleshooting</a></li>
       <li><a href="#contributing">Contributing</a></li>
     </ol>
@@ -187,6 +188,7 @@
             <tr><td><code>SYMPOSER_PHP</code></td><td><code>php</code> on <code>PATH</code></td><td>Run Composer on a specific PHP</td></tr>
             <tr><td><code>SYMPOSER_HOME</code></td><td><code>~/.symposer</code></td><td>Move the store and runtime files, for example to a bigger disk or a CI cache folder</td></tr>
             <tr><td><code>SYMPOSER_COMPOSER</code></td><td>pinned phar</td><td>Use another <code>composer.phar</code>, at your own risk</td></tr>
+            <tr><td><code>SYMPOSER_AUTO_PRUNE</code></td><td>off</td><td>Set to <code>1</code> to run <code>store prune</code> after each successful install, update, require or remove</td></tr>
           </tbody>
         </table>
       </div>
@@ -201,11 +203,30 @@
   runtime/shim-*.php        <span class="c"># the embedded shim</span>
   projects/*.json           <span class="c"># which store versions each project uses</span>
   store/&lt;vendor&gt;/&lt;name&gt;/&lt;version&gt;-&lt;ref&gt;/</pre>
-      <p>Updating a package links the new version and leaves the old one in the store, so other projects still on it keep working. Removing a package only removes the link.</p>
-      <p>Each run records which store versions the project uses. <code>symposer store prune</code> reads those records and deletes every version no project uses, including the versions of projects whose folder is gone. Versions stored in the last hour are skipped, in case an install is still running.</p>
-      <p>Projects last installed with symposer older than 0.2.0 have no record yet, so run <code>symposer install</code> in them once before pruning. If a project does lose a version, <code>symposer install</code> puts it back.</p>
+      <p>Updating a package links the new version and leaves the old one in the store, so other projects still on it keep working. Removing a package only removes the link. See <a href="#cleanup">Cleaning up</a> to get the space back.</p>
       <h3>Uninstall</h3>
       <p>Delete the binary and <code>~/.symposer</code>, then run <code>composer install</code> in your projects to replace the links with real folders.</p>
+    </section>
+
+    <section id="cleanup">
+      <h2>Cleaning up</h2>
+      <p>The store keeps every version any project has ever used. Say <code>shop</code> and <code>blog</code> both use monolog 3.9.0, and you update <code>shop</code> to 3.10.0. Deleting 3.9.0 right away would break <code>blog</code>, so symposer keeps it.</p>
+      <p>To tell what's still needed, every symposer run records which store versions that project uses, in <code>~/.symposer/projects/</code>. <code>store prune</code> reads those records and deletes the versions no project uses:</p>
+      <div class="cmd"><pre><span class="p">$ </span>symposer store prune --dry-run   <span class="c"># list what would be deleted</span>
+<span class="p">$ </span>symposer store prune             <span class="c"># delete it</span></pre></div>
+      <pre>removed 14 version(s), 38.2 MB; kept 112, used by 6 project(s)</pre>
+      <p>In the example, 3.9.0 stays as long as <code>blog</code> uses it. Once you update <code>blog</code> too, or delete its folder, the next prune removes it.</p>
+      <h3>Prune automatically</h3>
+      <p>Set <code>SYMPOSER_AUTO_PRUNE=1</code> and symposer prunes after every successful <code>install</code>, <code>update</code>, <code>require</code> or <code>remove</code>. It's off unless you turn it on.</p>
+      <div class="cmd"><pre><span class="p">$ </span>echo 'export SYMPOSER_AUTO_PRUNE=1' &gt;&gt; ~/.zshrc   <span class="c"># or ~/.bashrc</span></pre></div>
+      <p>Auto-prune follows the same rules and prints one line when it frees space:</p>
+      <pre>symposer: auto-pruned 3 unused version(s) from the store, 9.4 MB freed</pre>
+      <h3>Good to know</h3>
+      <ul>
+        <li><strong>Run <code>symposer install</code> once in older projects first.</strong> Projects last installed with symposer before 0.2.0 have no record yet, so prune would treat their versions as unused.</li>
+        <li><strong>A pruned version is easy to get back.</strong> If a project lost one, run <code>symposer install</code> in it. Composer downloads the version again, from its cache when it can.</li>
+        <li><strong>Versions stored in the last hour are skipped,</strong> so prune never races an install running in another terminal.</li>
+      </ul>
     </section>
 
     <section id="trouble">

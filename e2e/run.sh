@@ -95,6 +95,9 @@ rm -rf "$STORE"/monolog/monolog/2.9.1-*
 sym install
 expect vendor/monolog/monolog store
 php -r 'require "vendor/autoload.php"; new Monolog\Logger("x");' && pass "install heals a pruned link"
+SYMPOSER_AUTO_PRUNE=1 sym require monolog/monolog:2.9.2
+grep -q "auto-pruned" "$WORK/last.log" && ! ls -d "$STORE"/monolog/monolog/2.9.1-* >/dev/null 2>&1 || die "SYMPOSER_AUTO_PRUNE=1 did not prune monolog 2.9.1"
+pass "SYMPOSER_AUTO_PRUNE=1 prunes after require"
 unset SYMPOSER_PRUNE_MIN_AGE
 
 # 7. optional: full Laravel app with Pest (artisan scripts, package:discover, Pest's __DIR__ lookup)
