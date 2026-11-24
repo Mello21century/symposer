@@ -116,6 +116,7 @@
       <dl>
         <dt><code>symposer store status</code></dt><dd>Prints the symposer and Composer versions, the store path, how many packages and versions it holds, and its size.</dd>
         <dt><code>symposer store path</code></dt><dd>Prints the store path, handy in scripts.</dd>
+        <dt><code>symposer store prune</code></dt><dd>Deletes store versions that no project uses anymore. Add <code>--dry-run</code> to list them without deleting.</dd>
       </dl>
       <p>After each run symposer prints a summary:</p>
       <pre>symposer: 112 package(s) linked from store, 3 newly stored</pre>
@@ -198,9 +199,11 @@
       <pre>~/.symposer/
   composer-2.11.2.phar      <span class="c"># pinned Composer, downloaded once</span>
   runtime/shim-*.php        <span class="c"># the embedded shim</span>
+  projects/*.json           <span class="c"># which store versions each project uses</span>
   store/&lt;vendor&gt;/&lt;name&gt;/&lt;version&gt;-&lt;ref&gt;/</pre>
       <p>Updating a package links the new version and leaves the old one in the store, so other projects still on it keep working. Removing a package only removes the link.</p>
-      <p>There's no automatic cleanup yet. To start fresh, delete <code>~/.symposer/store</code>, then run <code>symposer install</code> in each project that used it.</p>
+      <p>Each run records which store versions the project uses. <code>symposer store prune</code> reads those records and deletes every version no project uses, including the versions of projects whose folder is gone. Versions stored in the last hour are skipped, in case an install is still running.</p>
+      <p>Projects last installed with symposer older than 0.2.0 have no record yet, so run <code>symposer install</code> in them once before pruning. If a project does lose a version, <code>symposer install</code> puts it back.</p>
       <h3>Uninstall</h3>
       <p>Delete the binary and <code>~/.symposer</code>, then run <code>composer install</code> in your projects to replace the links with real folders.</p>
     </section>

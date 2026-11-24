@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	_ "embed"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -17,13 +18,14 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 //go:embed shim/symposer.php
 var shim []byte
 
 const (
-	version = "0.1.1"
+	version = "0.2.0"
 	// ponytail: pinned because the shim decorates Composer internals; bump both together after re-running e2e
 	composerVersion = "2.11.2"
 	composerSHA256  = "dd158c0afd41d15fac89e1b4e47b5d42911fe316c3687cd5edac98319b25d028"
@@ -154,8 +156,13 @@ func storeCmd(home string, args []string) {
 		}
 		fmt.Printf("symposer %s (Composer %s)\nstore:    %s\npackages: %d (%d versions)\nsize:     %.1f MB\n",
 			version, composerVersion, store, pkgs, versions, float64(size)/1e6)
+	case "prune":
+		dry := len(args) > 1 && args[1] == "--dry-run"
+		if err := pruneStore(home, dry); err != nil {
+			fail(err)
+		}
 	default:
-		fmt.Fprintln(os.Stderr, "usage: symposer store path|status\n       symposer <composer command> [args]   e.g. symposer install")
+		fmt.Fprintln(os.Stderr, "usage: symposer store path|status|prune [--dry-run]\n       symposer <composer command> [args]   e.g. symposer install")
 		os.Exit(2)
 	}
 }
@@ -184,6 +191,111 @@ func storeStats(store string) (pkgs, versions int, size int64, err error) {
 		return nil
 	})
 	return
+}
+
+// pruneStore deletes store versions that no recorded project (projects/*.json, written by the shim) uses.
+func pruneStore(home string, dryRun bool) error {
+	// skip fresh dirs: an install may be running that has not recorded its project yet
+	minAge := time.Hour
+	if v := os.Getenv("SYMPOSER_PRUNE_MIN_AGE"); v != "" { // for tests
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			return fmt.Errorf("SYMPOSER_PRUNE_MIN_AGE: %w", err)
+		}
+		minAge = d
+	}
+
+	keep, projects := map[string]bool{}, 0
+	records, _ := filepath.Glob(filepath.Join(home, "projects", "*.json"))
+	for _, rec := range records {
+		data, err := os.ReadFile(rec)
+		if err != nil {
+			return err
+		}
+		var p struct {
+			Vendor string   `json:"vendor"`
+			Uses   []string `json:"uses"`
+		}
+		if err := json.Unmarshal(data, &p); err != nil {
+			return fmt.Errorf("%s: %w (fix or delete it; nothing was pruned)", rec, err)
+		}
+		if _, err := os.Stat(p.Vendor); errors.Is(err, fs.ErrNotExist) {
+			if !dryRun {
+				os.Remove(rec) // project is gone
+			}
+			continue
+		}
+		projects++
+		for _, u := range p.Uses {
+			keep[u] = true
+		}
+	}
+
+	store := filepath.Join(home, "store")
+	old := func(d fs.DirEntry) bool {
+		info, err := d.Info()
+		return err == nil && time.Since(info.ModTime()) >= minAge
+	}
+	verb := "removed"
+	if dryRun {
+		verb = "would remove"
+	}
+	removed, kept, freed := 0, 0, int64(0)
+	remove := func(dir, label string) error {
+		_, _, size, _ := storeStats(dir)
+		if dryRun {
+			fmt.Println(verb, label)
+		} else if err := os.RemoveAll(dir); err != nil {
+			return err
+		}
+		removed++
+		freed += size
+		return nil
+	}
+
+	vendors, _ := os.ReadDir(store)
+	for _, v := range vendors {
+		vdir := filepath.Join(store, v.Name())
+		if !v.IsDir() {
+			continue
+		}
+		if v.Name() == ".tmp" { // leftovers of interrupted installs
+			tmps, _ := os.ReadDir(vdir)
+			for _, t := range tmps {
+				if old(t) {
+					if err := remove(filepath.Join(vdir, t.Name()), ".tmp/"+t.Name()); err != nil {
+						return err
+					}
+				}
+			}
+			continue
+		}
+		names, _ := os.ReadDir(vdir)
+		for _, n := range names {
+			ndir := filepath.Join(vdir, n.Name())
+			versions, _ := os.ReadDir(ndir)
+			for _, ver := range versions {
+				key := v.Name() + "/" + n.Name() + "/" + ver.Name()
+				if keep[key] || !old(ver) {
+					kept++
+					continue
+				}
+				if err := remove(filepath.Join(ndir, ver.Name()), key); err != nil {
+					return err
+				}
+			}
+			if !dryRun {
+				os.Remove(ndir) // only succeeds when empty
+			}
+		}
+		if !dryRun {
+			os.Remove(vdir)
+		}
+	}
+
+	fmt.Printf("%s %d version(s), %.1f MB; kept %d, used by %d project(s)\n", verb, removed, float64(freed)/1e6, kept, projects)
+	fmt.Println("note: projects last installed with symposer < 0.2.0 are not tracked; run `symposer install` in them first")
+	return nil
 }
 
 func fail(err error) {

@@ -64,6 +64,10 @@ final class Stats
     public static $linked = 0;
     /** @var int */
     public static $stored = 0;
+    /** @var array<string, true> store dirs linked this run */
+    public static $used = [];
+    /** @var Composer[] project Composer instances seen this run */
+    public static $composers = [];
 }
 
 final class Store
@@ -153,6 +157,7 @@ final class Store
             throw new \RuntimeException("symposer: could not symlink $path -> $dir");
         }
         Stats::$linked++;
+        Stats::$used[$dir] = true;
     }
 
     private function hardlinkTree(string $from, string $to): void
@@ -173,6 +178,38 @@ final class Store
                 @chmod($dst, fileperms($src) & 0777);
             }
         }
+    }
+
+    /**
+     * Record which store dirs a project uses in projects/<sha1(vendor)>.json, so `symposer store prune`
+     * keeps them. One file per project: parallel runs never write the same file.
+     */
+    public function register(Composer $composer): void
+    {
+        $vendor = realpath($composer->getConfig()->get('vendor-dir'));
+        if ($vendor === false) {
+            return;
+        }
+        $uses = Stats::$used; // ponytail: over-inclusive is safe, prune only ever keeps more
+        foreach ($composer->getRepositoryManager()->getLocalRepository()->getPackages() as $p) {
+            if (($dir = $this->dirFor($p)) !== null) {
+                $uses[$dir] = true;
+            }
+        }
+        $prefix = $this->root . '/store/';
+        $rel = [];
+        foreach (array_keys($uses) as $dir) {
+            if (strpos($dir, $prefix) === 0) {
+                $rel[] = substr($dir, strlen($prefix));
+            }
+        }
+        sort($rel);
+        $vendor = str_replace('\\', '/', $vendor);
+        $file = $this->root . '/projects/' . sha1($vendor) . '.json';
+        $this->fs->ensureDirectoryExists(dirname($file));
+        $tmp = $file . '.' . bin2hex(random_bytes(4));
+        file_put_contents($tmp, json_encode(['vendor' => $vendor, 'uses' => $rel], JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) . "\n");
+        rename($tmp, $file);
     }
 
     public function isLinkPath(string $path): bool
@@ -362,6 +399,7 @@ final class SymposerApplication extends Application
         $composer = parent::getComposer($required, $disablePlugins, $disableScripts);
         if ($composer instanceof Composer && !isset($this->wrapped[$composer])) {
             $this->wrapped[$composer] = true;
+            Stats::$composers[] = $composer;
             $dm = $composer->getDownloadManager();
             $exclude = excludes($composer);
             foreach (ARCHIVE_TYPES as $type) {
@@ -373,11 +411,19 @@ final class SymposerApplication extends Application
     }
 }
 
-register_shutdown_function(static function (): void {
+$store = new Store(rtrim(str_replace('\\', '/', $home), '/'));
+
+register_shutdown_function(static function () use ($store): void {
     if (Stats::$linked > 0) {
         fwrite(STDERR, sprintf("symposer: %d package(s) linked from store, %d newly stored\n", Stats::$linked, Stats::$stored));
     }
+    foreach (Stats::$composers as $composer) {
+        try {
+            $store->register($composer);
+        } catch (\Throwable $e) {
+            fwrite(STDERR, 'symposer: could not record project for store prune: ' . $e->getMessage() . "\n");
+        }
+    }
 });
 
-$store = new Store(rtrim(str_replace('\\', '/', $home), '/'));
 (new SymposerApplication($store))->run();

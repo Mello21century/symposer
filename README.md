@@ -64,6 +64,7 @@ symposer install            # instead of: composer install
 symposer update             # instead of: composer update
 symposer require foo/bar    # any composer command works the same way
 symposer store status       # store location, package count, size
+symposer store prune        # delete store versions no project uses (--dry-run to preview)
 ```
 
 ### :elephant: Choosing the PHP version
@@ -107,6 +108,8 @@ Composer still does everything else, so these work unchanged: resolution, `compo
 | `path` repository | Composer's own symlink to your local package (never stored) |
 | `--prefer-source` / git source | normal clone (never stored) |
 | excluded or patched (`extra.patches`) | normal copy |
+
+:broom: Updating a package never deletes the old version, since another project may still use it. Each run records which versions the project uses, and `symposer store prune` deletes the ones no project uses anymore (including those of deleted projects). Projects last installed with symposer < 0.2.0 aren't recorded yet: run `symposer install` in them once before pruning.
 
 :lock: Store files are made read-only (except on Windows), so a package that writes into itself fails loudly instead of changing every project that shares it.
 

@@ -74,7 +74,30 @@ expect vendor/psr/log dir
 expect vendor/composer/installers store
 expect wp-content/plugins/akismet store
 
-# 6. optional: full Laravel app with Pest (artisan scripts, package:discover, Pest's __DIR__ lookup)
+# 6. store prune keeps what a project uses and drops what none does; a missing store dir heals on install
+export SYMPOSER_PRUNE_MIN_AGE=0
+STORE="$SYMPOSER_HOME/store"
+cd "$WORK/p1" && old=$(php -r 'echo basename(realpath("vendor/monolog/monolog"));')
+sym store prune
+[ -d "$STORE/monolog/monolog/$old" ] || die "prune removed monolog $old, which p1 uses"
+pass "prune kept versions in use"
+cd "$WORK" && rm -rf p1
+sym store prune --dry-run
+grep -q "would remove monolog/monolog/$old" "$WORK/last.log" && [ -d "$STORE/monolog/monolog/$old" ] || die "dry run"
+pass "prune --dry-run lists without deleting"
+sym store prune
+[ ! -e "$STORE/monolog/monolog/$old" ] || die "prune kept monolog $old after p1 was deleted"
+[ ! -e "$STORE/phpunit/phpunit" ] || die "prune kept phpunit, which no project uses"
+cd "$WORK/p2"
+php -r 'require "vendor/autoload.php"; new Monolog\Logger("x");' || die "p2 broken after prune"
+pass "prune removed unused versions; p2 still works"
+rm -rf "$STORE"/monolog/monolog/2.9.1-*
+sym install
+expect vendor/monolog/monolog store
+php -r 'require "vendor/autoload.php"; new Monolog\Logger("x");' && pass "install heals a pruned link"
+unset SYMPOSER_PRUNE_MIN_AGE
+
+# 7. optional: full Laravel app with Pest (artisan scripts, package:discover, Pest's __DIR__ lookup)
 if [ "${E2E_LARAVEL:-}" = 1 ]; then
   cd "$WORK" && php "$SYMPOSER_HOME"/composer-*.phar create-project laravel/laravel lara --no-install --no-scripts -q
   cd lara && cp .env.example .env
