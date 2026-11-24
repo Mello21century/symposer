@@ -159,6 +159,7 @@
           <tbody>
             <tr><td>Regular dist package</td><td>Symlink or junction to the store</td></tr>
             <tr><td>Package with <code>bin</code> entries</td><td>Hardlinked tree from the store</td></tr>
+            <tr><td>Any package, in a project that requires <code>drupal/core-vendor-hardening</code></td><td>Hardlinked tree from the store. The plugin deletes folders inside packages, and this keeps those deletions out of the shared store.</td></tr>
             <tr><td><code>path</code> repository</td><td>Composer's own symlink to your local folder, never stored</td></tr>
             <tr><td><code>--prefer-source</code> or git source</td><td>Regular clone, never stored</td></tr>
             <tr><td>Excluded or patched package</td><td>Regular copy</td></tr>

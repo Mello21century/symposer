@@ -105,6 +105,7 @@ Composer still does everything else, so these work unchanged: resolution, `compo
 |---|---|
 | normal dist package | symlink / junction → store |
 | package with `bin` | hardlinked tree from store |
+| any package, in a project using `drupal/core-vendor-hardening` | hardlinked tree from store (the plugin deletes folders inside packages; this keeps those deletions out of the shared store) |
 | `path` repository | Composer's own symlink to your local package (never stored) |
 | `--prefer-source` / git source | normal clone (never stored) |
 | excluded or patched (`extra.patches`) | normal copy |

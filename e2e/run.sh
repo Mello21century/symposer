@@ -74,7 +74,17 @@ expect vendor/psr/log dir
 expect vendor/composer/installers store
 expect wp-content/plugins/akismet store
 
-# 6. store prune keeps what a project uses and drops what none does; a missing store dir heals on install
+# 6. a plugin that deletes inside vendor packages (Drupal's vendor hardening) gets hardlinked trees, and the store stays intact
+mkdir -p "$WORK/p4" && cd "$WORK/p4"
+echo '{"require":{"psr/log":"^1 || ^2 || ^3"},"extra":{"drupal-core-vendor-hardening":{"psr/log":["README.md"]}},"config":{"allow-plugins":{"drupal/core-vendor-hardening":true}}}' > composer.json
+sym update
+expect vendor/psr/log store
+sym require drupal/core-vendor-hardening:"^8.8 || ^9 || ^10 || ^11"
+expect vendor/psr/log hardlink
+[ ! -e vendor/psr/log/README.md ] && [ -f "$(ls -d "$SYMPOSER_HOME"/store/psr/log/*/ | head -1)README.md" ] || die "vendor hardening reached the store"
+pass "vendor hardening cleaned the project copy only"
+
+# 7. store prune keeps what a project uses and drops what none does; a missing store dir heals on install
 export SYMPOSER_PRUNE_MIN_AGE=0
 STORE="$SYMPOSER_HOME/store"
 cd "$WORK/p1" && old=$(php -r 'echo basename(realpath("vendor/monolog/monolog"));')
@@ -100,7 +110,7 @@ grep -q "auto-pruned" "$WORK/last.log" && ! ls -d "$STORE"/monolog/monolog/2.9.1
 pass "SYMPOSER_AUTO_PRUNE=1 prunes after require"
 unset SYMPOSER_PRUNE_MIN_AGE
 
-# 7. optional: full Laravel app with Pest (artisan scripts, package:discover, Pest's __DIR__ lookup)
+# 8. optional: full Laravel app with Pest (artisan scripts, package:discover, Pest's __DIR__ lookup)
 if [ "${E2E_LARAVEL:-}" = 1 ]; then
   cd "$WORK" && php "$SYMPOSER_HOME"/composer-*.phar create-project laravel/laravel lara --no-install --no-scripts -q
   cd lara && cp .env.example .env

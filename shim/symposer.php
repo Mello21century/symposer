@@ -244,14 +244,22 @@ final class StoreDownloader implements DownloaderInterface
     private $exclude;
     /** @var IOInterface */
     private $io;
+    /** @var bool */
+    private $hardlinkAll;
 
     /** @param array<string, true> $exclude */
-    public function __construct(DownloaderInterface $inner, Store $store, array $exclude, IOInterface $io)
+    public function __construct(DownloaderInterface $inner, Store $store, array $exclude, IOInterface $io, bool $hardlinkAll)
     {
         $this->inner = $inner;
         $this->store = $store;
         $this->exclude = $exclude;
         $this->io = $io;
+        $this->hardlinkAll = $hardlinkAll;
+    }
+
+    private function hardlink(PackageInterface $p): bool
+    {
+        return $this->hardlinkAll || $p->getBinaries() !== [];
     }
 
     public function getInstallationSource(): string
@@ -312,15 +320,15 @@ final class StoreDownloader implements DownloaderInterface
         }
         $id = spl_object_id($package);
         if (!isset($this->tmp[$id])) {
-            $hard = $package->getBinaries() !== [];
-            $this->io->writeError('  - Linking <info>' . $package->getPrettyName() . '</info> (<comment>' . $package->getFullPrettyVersion() . '</comment>) from store' . ($hard ? ' (hardlinked, has bin)' : ''));
+            $hard = $this->hardlink($package);
+            $this->io->writeError('  - Linking <info>' . $package->getPrettyName() . '</info> (<comment>' . $package->getFullPrettyVersion() . '</comment>) from store' . ($hard ? ' (hardlinked)' : ''));
             $this->store->link($dir, $path, $hard); // store hit
             return resolve(null);
         }
 
         return $this->inner->install($package, $this->tmp[$id])->then(function () use ($id, $dir, $path, $package) {
             $this->store->commit($this->tmp[$id], $dir);
-            $this->store->link($dir, $path, $package->getBinaries() !== []);
+            $this->store->link($dir, $path, $this->hardlink($package));
         });
     }
 
@@ -380,6 +388,19 @@ function excludes(Composer $composer): array
     return array_fill_keys(array_map('strtolower', $names), true);
 }
 
+/**
+ * Plugins that delete files inside vendor packages would delete them from the shared store through a symlink,
+ * so their projects get hardlinked trees instead: deleting a hardlink leaves the store copy intact.
+ * ponytail: root requires only; add other vendor-pruning plugins here as they turn up.
+ */
+function editsVendor(Composer $composer): bool
+{
+    $root = $composer->getPackage();
+    $requires = $root->getRequires() + $root->getDevRequires();
+
+    return isset($requires['drupal/core-vendor-hardening']);
+}
+
 final class SymposerApplication extends Application
 {
     /** @var \SplObjectStorage Composer instances whose downloaders are already wrapped */
@@ -402,8 +423,18 @@ final class SymposerApplication extends Application
             Stats::$composers[] = $composer;
             $dm = $composer->getDownloadManager();
             $exclude = excludes($composer);
+            $hard = editsVendor($composer);
             foreach (ARCHIVE_TYPES as $type) {
-                $dm->setDownloader($type, new StoreDownloader($dm->getDownloader($type), $this->symposerStore, $exclude, $this->getIO()));
+                $dm->setDownloader($type, new StoreDownloader($dm->getDownloader($type), $this->symposerStore, $exclude, $this->getIO(), $hard));
+            }
+            if ($hard) { // symlinks left by older symposer versions would let the plugin delete from the store
+                foreach ($composer->getRepositoryManager()->getLocalRepository()->getPackages() as $p) {
+                    $path = $composer->getInstallationManager()->getInstallPath($p);
+                    $dir = $this->symposerStore->dirFor($p);
+                    if ($path !== null && $dir !== null && $this->symposerStore->isLinkPath($path) && is_dir($dir)) {
+                        $this->symposerStore->link($dir, $path, true);
+                    }
+                }
             }
         }
 

@@ -25,7 +25,7 @@ import (
 var shim []byte
 
 const (
-	version = "0.2.0"
+	version = "0.2.1"
 	// ponytail: pinned because the shim decorates Composer internals; bump both together after re-running e2e
 	composerVersion = "2.11.2"
 	composerSHA256  = "dd158c0afd41d15fac89e1b4e47b5d42911fe316c3687cd5edac98319b25d028"
