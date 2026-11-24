@@ -76,12 +76,15 @@ expect wp-content/plugins/akismet store
 
 # 6. a plugin that deletes inside vendor packages (Drupal's vendor hardening) gets hardlinked trees, and the store stays intact
 mkdir -p "$WORK/p4" && cd "$WORK/p4"
-echo '{"require":{"psr/log":"^1 || ^2 || ^3"},"extra":{"drupal-core-vendor-hardening":{"psr/log":["README.md"]}},"config":{"allow-plugins":{"drupal/core-vendor-hardening":true}}}' > composer.json
+# Drupal 8's plugin removes directories only; psr/log keeps its code in Psr/ (v1) or src/ (v2+)
+echo '{"require":{"psr/log":"^1 || ^2 || ^3"},"extra":{"drupal-core-vendor-hardening":{"psr/log":["Psr","src"]}},"config":{"allow-plugins":{"drupal/core-vendor-hardening":true}}}' > composer.json
 sym update
 expect vendor/psr/log store
+stored=$(php -r 'echo realpath("vendor/psr/log");')
 sym require drupal/core-vendor-hardening:"^8.8 || ^9 || ^10 || ^11"
 expect vendor/psr/log hardlink
-[ ! -e vendor/psr/log/README.md ] && [ -f "$(ls -d "$SYMPOSER_HOME"/store/psr/log/*/ | head -1)README.md" ] || die "vendor hardening reached the store"
+[ ! -e vendor/psr/log/Psr ] && [ ! -e vendor/psr/log/src ] || die "vendor hardening did not run"
+[ -d "$stored/Psr" ] || [ -d "$stored/src" ] || die "vendor hardening reached the store"
 pass "vendor hardening cleaned the project copy only"
 
 # 7. store prune keeps what a project uses and drops what none does; a missing store dir heals on install
